@@ -31,3 +31,4 @@ xcuserdata/
 *.DSYM.zip
 
 
+Mac app/out/*
