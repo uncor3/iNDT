@@ -1,6 +1,6 @@
 # TARGET = simulator:clang::13.0
 # ARCHS = x86_64
-TARGET=iphone::11.2:11.0
+TARGET := iphone:clang:latest:14.0
 ARCHS = arm64 arm64e
 DEBUG = 0
 

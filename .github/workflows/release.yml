@@ -1,0 +1,75 @@
+name: Create release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Check cache
+        run: |
+          echo upstream_heads=`git ls-remote https://github.com/theos/theos | head -n 1 | cut -f 1`-`git ls-remote https://github.com/theos/sdks | head -n 1 | cut -f 1` >> $GITHUB_ENV
+
+      - name: Use cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/theos
+          key: ${{ runner.os }}-${{ env.upstream_heads }}
+
+      - name: Prepare Theos
+        uses: Randomblock1/theos-action@v1
+
+      - name: Build packages
+        run: |
+          chmod +x ./build.sh
+          ./build.sh
+
+      - name: Build mac app
+        run: |
+          xcodebuild -project "Mac app/iOS Notification Debugging Tools.xcodeproj" \
+              -scheme "iOS Notification Debugging Tools" \
+              -configuration Release \
+              -sdk macosx \
+              -destination 'generic/platform=macOS' \
+              BUILD_DIR=out \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              clean build
+
+      - name: Compress mac app and move to packages
+        run: |
+          cd ${{ github.workspace }}/Mac\ app/out/Release/
+          tar -czf ${{ github.workspace }}/packages/iOS\ Notification\ Debugging\ Tools.app.tar.gz ./iOS\ Notification\ Debugging\ Tools.app
+
+      - name: release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: false
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: upload artifact
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          files: |
+            ${{ github.workspace }}/packages/*
